@@ -7,11 +7,6 @@ extern "C" {
 }
 
 #[no_mangle]
-pub extern fn configure(_ptr: *const u8, _len: usize) {
-    // TODO
-}
-
-#[no_mangle]
 pub extern fn receive(len: usize) {
     receive_from_host(&mut StaticHost{}, len)
 }
