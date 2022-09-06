@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+		<style>
+			.material-icons {
+				font-family: 'Material Icons';
+				font-weight: normal;
+				font-style: normal;
+				font-size: 24px;  /* Preferred icon size */
+				display: inline-block;
+				line-height: 1;
+				text-transform: none;
+				letter-spacing: normal;
+				word-wrap: normal;
+				white-space: nowrap;
+				direction: ltr;
+
+				/* Support for all WebKit browsers. */
+				-webkit-font-smoothing: antialiased;
+				/* Support for Safari and Chrome. */
+				text-rendering: optimizeLegibility;
+
+				/* Support for Firefox. */
+				-moz-osx-font-smoothing: grayscale;
+
+				/* Support for IE. */
+				font-feature-settings: 'liga';
+			}
+		</style>
+		<style>
+			body {
+				font-family: sans-serif;
+			}
+			main {
+				display: flex;
+				flex-direction: row;
+			}
+			#source #websocket-input button {
+				align-items: center;
+				display: flex;
+				justify-content: center;
+			}
+			#pipeline {
+				align-content: center;
+				border: 1px solid gray;
+				border-radius: 3px;
+				display: flex;
+				flex-direction: column;
+				margin: 1em;
+				min-width: 20em;
+				padding: .5em;
+			}
+			#pipeline header {
+				font-size: 1.2em;
+				font-weight: bold;
+				margin: .5em;
+				text-align: center;
+			}
+			#pipeline #add-stage {
+				display: flex;
+				font-weight: bold;
+				font-size: 1.6em;
+				justify-content: center;
+				margin: .25em;
+			}
+			#stages {
+				display: flex;
+				flex-direction: column;
+			}
+			#stages .stage {
+				border: 1px solid silver;
+				margin: .25em;
+			}
+			#stages .stage:hover {
+				border-color: cornflowerblue;
+			}
+			#stages .stage .info {
+				display: flex;
+				justify-content: space-between;
+				margin: .2em;
+			}
+			#stages .stage .info::before {
+				margin-right: .25em;
+			}
+			#stages .stage .info.name::before {
+				content: "Name:";
+			}
+			#stages .stage .info.size::before {
+				content: "Size:";
+			}
+		</style>
+		<script>
+			function h() {
+				let tag, attrs, children;
+				for (const arg of arguments) {
+					if (typeof arg === "string") {
+						tag = arg;
+						continue
+					}
+					if (typeof arg === "object") {
+						if (Array.isArray(arg)) {
+							children = arg;
+							continue
+						}
+						attrs = arg;
+					}
+				}
+				const elem = document.createElement(arguments[0]);
+				if (attrs) {
+					for (const attr of Object.entries(attrs)) {
+						elem.setAttribute(...attr);
+					}
+				}
+				if (children) {
+					elem.append(...children);
+				}
+				return elem;
+			}
+			const utf8Decoder = new TextDecoder();
+			const utf8Encoder = new TextEncoder();
+
+			var pipeline = [];
+			var records = [];
+
+			function setImport(imports, desc, value) {
+				imports[desc.module] = imports[desc.module] || {};
+				imports[desc.module][desc.name] = value;
+			}
+
+			async function loadPluginFromFile(file) {
+				const stage = {
+					origin: file,
+					data: null,
+				};
+
+				stage.module = await WebAssembly.compile(await file.arrayBuffer());
+
+				const exportDescs = WebAssembly.Module.exports(stage.module);
+				const importDescs = WebAssembly.Module.imports(stage.module);
+
+				const imports = {};
+				for (const importDesc of importDescs) {
+					if (importDesc.kind === "memory") {
+						stage.memory = new WebAssembly.Memory({initial: 1});
+						setImport(imports, importDesc, stage.memory);
+						continue
+					}
+					if (importDesc.kind === "function" && importDesc.name === "error") {
+						function error(ptr, len) {
+							const msgBuf = new Uint8Array(stage.memory.buffer, ptr, len);
+							console.error(utf8Decoder.decode(msgBuf));
+						}
+						setImport(imports, importDesc, error);
+						continue
+					}
+					if (importDesc.kind === "function" && importDesc.name === "get_data") {
+						function getData(ptr) {
+							const block = new Uint8Array(stage.memory.buffer, ptr)
+
+							const data = stage.data;
+							stage.data = null;
+
+							if (!data) throw new Error("stage tried to get data when there was no data set");
+
+							block.set(data);
+						}
+						setImport(imports, importDesc, getData);
+						continue
+					}
+					if (importDesc.kind === "function" && importDesc.name === "send") {
+						function send(ptr, len) {
+							const block = new Uint8Array(stage.memory.buffer, ptr, len)
+
+							console.assert(stage.data === null, "stage data should be cleared");
+
+							stage.data = new Uint8Array(block.length);
+							stage.data.set(block);
+						}
+						setImport(imports, importDesc, send);
+						continue
+					}
+					console.error("unsupported import", importDesc, module);
+					return
+				}
+
+				stage.instance = await WebAssembly.instantiate(stage.module, imports);
+
+				if (stage.memory === undefined) {
+					stage.memory = stage.instance.exports.memory;
+				}
+				pipeline.push(stage);
+
+				onPipelineChanged();
+			}
+
+			function processRecord(record) {
+				const result = [record];
+				for (const stage of pipeline) {
+					console.assert(stage.data === null, "stage data should be cleared");
+					stage.data = result[result.length-1];
+					stage.instance.exports.receive(stage.data.length);
+					result.push(stage.data);
+					stage.data = null;
+
+					if (result[result.length-1] === null) {
+						console.debug("log record consumed by stage", stage);
+						break
+					}
+				}
+				return result;
+			}
+
+			document.addEventListener("DOMContentLoaded", () => {
+				const addStageBtn = document.getElementById("add-stage");
+				const addStageInput = addStageBtn.querySelector('input[type="file"]');
+				addStageBtn.addEventListener("click", () => addStageInput.click());
+				addStageInput.addEventListener("change", (ev) => loadPluginFromFile(ev.target.files[0]));
+
+				const manualInput = document.querySelector("#manual-input input");
+				manualInput.addEventListener("keypress", (ev) => {
+					if (ev.key === "Enter" && ev.target.value !== "") {
+						const inputText = ev.target.value;
+						const inputBytes = utf8Encoder.encode(inputText);
+						const result = processRecord(inputBytes);
+						console.log("processed record", result.map(bytes => ({bytes, text: utf8Decoder.decode(bytes)})));
+					}
+				});
+			});
+
+			function onPipelineChanged() {
+				const stagesElem = document.getElementById("stages");
+				stagesElem.replaceChildren(...pipeline.map(stage => h("div", {class: "stage"}, [
+					h("div", {class: "info name"}, [stage.origin.name]),
+					h("div", {class: "info size"}, [stage.origin.size, "B"]),
+					h("button", [h("span", {class: "material-icons"}, ["\uE5CD"])]),
+				])));
+			}
+
+			function onRecordsChanged() {
+
+			}
+		</script>
+	</head>
+	<body>
+		<main>
+			<section id="source">
+				<div id="manual-input">
+					<input type="text" placeholder="Enter log line">
+				</div>
+				<div id="websocket-input">
+					<input type="url" placeholder="URL">
+					<button id="connect-btn"><span class="material-icons">&#xE157;</span> Connect</button>
+					<button id="record-btn"><span class="material-icons">&#xE836;</span> Record</button>
+				</div>
+				<div>
+					<i>recorded lines</i>
+				</div>
+			</section>
+			<section id="pipeline">
+				<header>Pipeline</header>
+				<div id="stages"></div>
+				<button id="add-stage"><span class="material-icons">&#xE147;</span><input type="file" accept="application/wasm" style="display: none;"></button>
+			</section>
+			<section id="inspector">
+				<section id="input"></section>
+				<section id="output"></section>
+			</section>
+		</main>
+	</body>
+</html>
