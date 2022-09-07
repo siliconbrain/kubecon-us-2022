@@ -180,8 +180,12 @@
 						setImport(imports, importDesc, send);
 						continue
 					}
-					console.error("unsupported import", importDesc, module);
-					return
+					if (importDesc.kind === "function" ) {
+						setImport(imports, importDesc, function(){ console.error("not implemented", importDesc)})
+						continue
+					}
+					console.error("unsupported import", importDesc, stage.module);
+					//return
 				}
 
 				stage.instance = await WebAssembly.instantiate(stage.module, imports);
