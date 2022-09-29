@@ -145,7 +145,20 @@ export default function Home() {
           <div className="mt-4 divide-y divide-slate-200">
             {pipeline?.map(({ id, origin }) => (
               <div key={id} className="py-2 flex justify-between items-center">
-                <div>{origin.name}</div>
+                <div
+                  className={
+                    results?.byStage
+                      ?.find(({ stageId }) => {
+                        console.log(stageId, id)
+                        return stageId === id
+                      })
+                      ?.results?.some(({ errors }) => errors?.length > 0)
+                      ? 'text-red-600'
+                      : ''
+                  }
+                >
+                  {origin.name}
+                </div>
                 <button className="text-xl text-black" onClick={() => onRemoveStage(id)}>
                   ✕
                 </button>
@@ -170,6 +183,38 @@ export default function Home() {
                 <span>autorun</span>
               </div>
             </div>
+          </div>
+          <div className="text-red-600">
+            {results?.byStage?.map(({ stageId, results }) => (
+              <div key={stageId}>
+                {results?.map(({ errors, input }) => (
+                  <>
+                    {errors?.length > 0 ? (
+                      <div className="pl-2 pt-2">
+                        <span className="font-bold mr-2">
+                          {pipeline?.find(({ id }) => stageId === id)?.origin?.name}
+                        </span>
+                        <span>
+                          <span>(input: </span>
+                          <span
+                            className="inline-block align-bottom font-mono max-w-md overflow-hidden text-ellipsis"
+                            title={new TextDecoder().decode(input)}
+                          >
+                            {new TextDecoder().decode(input)}
+                          </span>
+                          <span>):</span>
+                        </span>
+                      </div>
+                    ) : null}
+                    {errors?.map((e, idx) => (
+                      <div className="pl-4" key={idx}>
+                        {e}
+                      </div>
+                    ))}
+                  </>
+                ))}
+              </div>
+            ))}
           </div>
           <div className="my-4 px-2 divide-y divide-slate-200">
             {results?.outputs?.map((o, idx) => (
