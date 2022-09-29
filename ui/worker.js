@@ -5,6 +5,8 @@ onmessage = function(msg) {
 	fn(...args);
 }
 
+const utf8Decoder = new TextDecoder();
+
 const pipeline = [];
 
 async function loadStageFromFile(file) {
