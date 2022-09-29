@@ -1,25 +1,26 @@
 package main
 
-import (
-	"golang.org/x/exp/slices"
-)
-
 //go:wasm-module env
 //export error
-func error(ptr *byte, len uint)
+func Error(ptr *byte, len uint)
 
 //go:wasm-module env
 //export get_data
-func get_data(ptr *byte)
+func GetData(ptr *byte)
 
 //go:wasm-module env
 //export send
-func send(ptr *byte, len uint)
+func Send(ptr *byte, len uint) bool
 
 //export receive
-func receive(len uint) {
-	data := make([]byte, len)
-	get_data(&data[0])
-	slices.Sort(data)
-	send(&data[0], len)
+func Receive(dataLen uint) {
+	data := make([]byte, dataLen)
+	GetData(&data[0])
+	runes := []rune(string(data))
+	for i := 0; i < len(runes)/2; i++ {
+		j := len(runes) - 1 - i
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+	data = []byte(string(runes))
+	Send(&data[0], uint(len(data)))
 }
