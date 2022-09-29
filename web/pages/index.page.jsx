@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react'
 import { Switch } from '@headlessui/react'
 
 function classNames(...classes) {
@@ -35,16 +35,20 @@ function Toggle({ defaultValue = false, onChange }) {
 
 export default function Home() {
   const [pipeline, setPipeline] = useState([])
-  const [autorun, setAutorun] = useState(false)
+  const [selected, setSelected] = useState(null)
+  const [results, setResults] = useState({})
+  const selectedResult = useMemo(
+    () => results?.byStage?.find(({ stageId }) => stageId === selected),
+    [selected, results],
+  )
+  const [autorun, setAutorun] = useState(true)
   const [error, setError] = useState(null)
   const [record, setRecord] = useState('')
   const workerRef = useRef()
-  const textareaRef = useRef()
 
   const onPipelineChanged = useCallback((p) => {
     setPipeline(p)
   }, [])
-  const [results, setResults] = useState({})
   const onRecordProcessed = useCallback((r) => {
     setResults(r)
   }, [])
@@ -71,7 +75,7 @@ export default function Home() {
       console.warn(`No such function ${name}`)
     }
 
-    workerRef.current?.postMessage({ name: 'loadStagesFromFiles', args: [pipeline?.map(({origin}) => origin)]})
+    workerRef.current?.postMessage({ name: 'loadStagesFromFiles', args: [pipeline?.map(({ origin }) => origin)] })
 
     return () => {
       workerRef.current.terminate()
@@ -93,6 +97,19 @@ export default function Home() {
     },
     [setError, workerRef],
   )
+
+  const onRecordInputChange = useCallback((e) => {
+    const r = e.target.value
+    setRecord(r)
+    if (r != null) {
+      localStorage.setItem('record-input', r)
+    }
+  }, [])
+
+  useEffect(() => {
+    const r = localStorage.getItem('record-input')
+    setRecord(r)
+  }, [])
 
   const onRemoveStage = useCallback(
     (id) => {
@@ -125,7 +142,7 @@ export default function Home() {
   }, [results])
 
   return (
-    <div className="flex flex-col h-full w-full">
+    <div className="flex flex-col h-full w-full overflow-hidden">
       {error ? (
         <div className="bg-red-100 text-red-700 px-4 py-2 flex justify-between items-center">
           <div>{error.message}</div>
@@ -134,94 +151,142 @@ export default function Home() {
           </button>
         </div>
       ) : null}
-      <div className="flex p-4 flex-1">
-        <div className="mr-4 border-r-2 border-slate-200 border-solid pr-8 p-4">
-          <div>
+      <div className="flex flex-1 h-full w-full">
+        <div className="mr-4 border-r-2 border-slate-200 border-solid flex flex-col items-center">
+          <div className="flex-1 pt-4">
+            <h2 className="w-full text-center mb-4 text-2xl font-bold">Plugins</h2>
+            <div className="text-xl pl-4 font-medium gap-y-2 flex flex-col">
+              {pipeline?.map(({ id, origin }) => (
+                <div
+                  key={id}
+                  className={classNames(
+                    'rounded-l-md py-4 pl-4 pr-8 flex justify-between items-center hover:bg-blue-200 cursor-pointer',
+                    selected === id ? 'bg-blue-100' : '',
+                  )}
+                  onClick={() => (selected === id ? setSelected(null) : setSelected(id))}
+                >
+                  <div
+                    className={
+                      results?.byStage
+                        ?.find(({ stageId }) => stageId === id)
+                        ?.results?.some(({ errors }) => errors?.length > 0)
+                        ? 'text-red-600'
+                        : ''
+                    }
+                  >
+                    {origin.name}
+                  </div>
+                  <button className="text-lg text-black ml-4 hover:text-red-800" onClick={() => onRemoveStage(id)}>
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="p-4">
             <label className="flex items-center justify-center text-blue-800 w-48 h-12 rounded-md cursor-pointer hover:bg-blue-100 ring-2 ring-blue-300 hover:ring-blue-400">
               <span className="font-bold text-xl">load</span>
               <input type="file" onChange={onFileInput} accept="application/wasm" className="hidden" />
             </label>
           </div>
-          <div className="mt-4 divide-y divide-slate-200">
-            {pipeline?.map(({ id, origin }) => (
-              <div key={id} className="py-2 flex justify-between items-center">
-                <div
-                  className={
-                    results?.byStage
-                      ?.find(({ stageId }) => {
-                        console.log(stageId, id)
-                        return stageId === id
-                      })
-                      ?.results?.some(({ errors }) => errors?.length > 0)
-                      ? 'text-red-600'
-                      : ''
-                  }
-                >
-                  {origin.name}
-                </div>
-                <button className="text-xl text-black" onClick={() => onRemoveStage(id)}>
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
         </div>
-        <div className="flex-1 pl-2 ml-2 flex-col">
-          <div className="flex gap-x-4">
+        <div className="flex-1 pl-2 pr-8 ml-2 flex-col flex pt-8 overflow-hidden">
+          <div className="flex gap-x-4 relative">
             <textarea
-              className="block w-full font-mono resize-none border-0 py-3 focus:ring-1 rounded-md focus:ring-blue-400 ring-slate-200"
+              className="block bg-gray-50 pr-32 w-full font-mono resize-none border-0 py-3 focus:ring-1 rounded-md focus:ring-blue-400 ring-slate-200"
               placeholder="Add your log..."
-              defaultValue={''}
-              onChange={(e) => setRecord(e.target.value)}
+              rows={8}
+              onChange={onRecordInputChange}
+              value={record}
             />
-            <div className="flex flex-col gap-y-2">
-              <button className="bottom-0 right-0 bg-blue-800 text-white px-4 py-2 rounded-md" onClick={onRun}>
+            <div className="absolute right-0 top-0 pt-4 pr-4 flex items-center gap-x-2 ">
+              <span>autorun</span>
+              <Toggle defaultValue={autorun} onChange={setAutorun} />
+            </div>
+            <div className="absolute right-0 bottom-0 pb-4 pr-4">
+              <button
+                disabled={autorun}
+                className="bottom-0 right-0 bg-blue-800 text-white px-4 py-2 rounded-md disabled:hidden"
+                onClick={onRun}
+              >
                 run
               </button>
-              <div className="flex items-center gap-x-2">
-                <Toggle defaultValue={autorun} onChange={setAutorun} />
-                <span>autorun</span>
-              </div>
             </div>
           </div>
-          <div className="text-red-600">
-            {results?.byStage?.map(({ stageId, results }) => (
-              <div key={stageId}>
-                {results?.map(({ errors, input }) => (
-                  <>
-                    {errors?.length > 0 ? (
-                      <div className="pl-2 pt-2">
-                        <span className="font-bold mr-2">
-                          {pipeline?.find(({ id }) => stageId === id)?.origin?.name}
-                        </span>
-                        <span>
-                          <span>(input: </span>
-                          <span
-                            className="inline-block align-bottom font-mono max-w-md overflow-hidden text-ellipsis"
-                            title={new TextDecoder().decode(input)}
-                          >
-                            {new TextDecoder().decode(input)}
+          {selected ? null : (
+            <div className="text-red-600">
+              {results?.byStage?.map(({ stageId, results }) => (
+                <div key={stageId}>
+                  {results?.map(({ errors, input }) => (
+                    <>
+                      {errors?.length > 0 ? (
+                        <div className="pl-2 pt-2">
+                          <span className="font-bold mr-2">
+                            {pipeline?.find(({ id }) => stageId === id)?.origin?.name}
                           </span>
-                          <span>):</span>
-                        </span>
-                      </div>
-                    ) : null}
-                    {errors?.map((e, idx) => (
-                      <div className="pl-4" key={idx}>
-                        {e}
+                          {/* <span>
+                            <span>(input: </span>
+                            <code
+                              className="inline-block align-bottom font-mono max-w-md overflow-hidden text-ellipsis"
+                              title={new TextDecoder().decode(input)}
+                            >
+                              {new TextDecoder().decode(input)}
+                            </code>
+                            <span>):</span> */}
+                          {/* </span> */}
+                        </div>
+                      ) : null}
+                      {errors?.map((e, idx) => (
+                        <div className="pl-4" key={idx}>
+                          {e}
+                        </div>
+                      ))}
+                    </>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="my-4 px-2 divide-y divide-slate-200 overflow-y-auto">
+            {selectedResult ? (
+              <>
+                {selectedResult?.results?.map(({ input, outputs, errors }, idx) => (
+                  <div key={idx} className="py-2">
+                    <div>
+                      <span className="mr-2">⇥</span>
+                      <span className="font-bold text-blue-600 mr-2">input {idx}.</span>
+                      <div className="font-mono inline-block break-all">{new TextDecoder().decode(input)}</div>
+                    </div>
+                    {errors?.map((e) => (
+                      <div className="pl-4 py-1 text-red-600" key={e}>
+                        Error: {e}
                       </div>
                     ))}
-                  </>
+                    <div>
+                      {outputs?.map((o, idx) => (
+                        <div key={idx} className="py-1 pl-4">
+                          <span className="mr-2">⇤</span>
+                          <span className="font-bold text-blue-600">{idx}.</span>
+                          <div className="font-mono inline-block break-all" key={idx}>
+                            {new TextDecoder().decode(o)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 ))}
-              </div>
-            ))}
-          </div>
-          <div className="my-4 px-2 divide-y divide-slate-200">
-            {results?.outputs?.map((o, idx) => (
-              <pre className="block py-2" key={idx}>
-                {new TextDecoder().decode(o)}
-              </pre>
-            ))}
+              </>
+            ) : (
+              results?.outputs?.map((o, idx) => (
+                <div key={idx} className="py-1 pl-4">
+                  <span className="mr-2">⇤</span>
+                  <span className="font-bold text-blue-600 mr-2">{idx}.</span>
+                  <div className="font-mono inline-block break-all" key={idx}>
+                    {new TextDecoder().decode(o)}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

@@ -12,12 +12,8 @@ export default function App({ Component, pageProps }) {
           content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=yes, viewport-fit=cover"
         />
       </Head>
-      <div className="absolute inset-0 flex flex-col">
-        <div className="flex flex-1">
-          <div className="flex-1 bg-gray-50 dark:bg-gray-900">
-            <Component {...pageProps} />
-          </div>
-        </div>
+      <div className="absolute inset-0">
+        <Component {...pageProps} />
       </div>
     </>
   )
