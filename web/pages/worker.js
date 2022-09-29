@@ -6,6 +6,7 @@ async function loadStageFromFile(file) {
     id: Date.now().toString(16),
     origin: file,
     data: null,
+    errors : null,
     sent: null,
   }
 
@@ -33,7 +34,11 @@ async function loadStageFromFile(file) {
       if (importDesc.kind === 'function' && importDesc.name === 'error') {
         function error(ptr, len) {
           const msgBuf = new Uint8Array(stage.memory.buffer, ptr, len)
-          console.error(utf8Decoder.decode(msgBuf))
+          const errorMsg = utf8Decoder.decode(msgBuf)
+          if (stage.errors === null) {
+            stage.errors = []
+          }
+          stage.errors.push(errorMsg)
         }
         setImport(error)
         continue
@@ -114,6 +119,8 @@ function processRecord(record) {
     for (const input of inputs) {
       console.assert(stage.data === null, 'stage data should be cleared', { data: stage.data, stage })
       stage.data = input
+      console.assert(stage.errors === null, 'stage errors should be cleared', {errors: stage.errors, stage})
+      stage.errors = []
       console.assert(stage.sent === null, 'stage sent should be cleared', { sent: stage.sent, stage })
       stage.sent = []
       stage.instance.exports.receive(stage.data.length)
@@ -123,9 +130,11 @@ function processRecord(record) {
       }
       stageResult.results.push({
         input,
+        errors: stage.errors,
         outputs: stage.sent,
       })
       result.outputs.push(...stage.sent)
+      stage.errors = null // clear errors
       stage.sent = null // clear sent
     }
     result.byStage.push(stageResult)
