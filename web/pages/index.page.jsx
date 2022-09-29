@@ -21,7 +21,7 @@ function Toggle({ defaultValue = false, onChange }) {
         'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2',
       )}
     >
-      <span className="sr-only">Use setting</span>
+      <span className="sr-only">Auto-run</span>
       <span
         aria-hidden="true"
         className={classNames(
@@ -71,7 +71,7 @@ export default function Home() {
       console.warn(`No such function ${name}`)
     }
 
-    pipeline?.forEach(({ origin: file }) => workerRef.current?.postMessage({ name: 'loadStageFromFile', args: [file] }))
+    workerRef.current?.postMessage({ name: 'loadStagesFromFiles', args: [pipeline?.map(({origin}) => origin)]})
 
     return () => {
       workerRef.current.terminate()

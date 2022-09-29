@@ -1,9 +1,14 @@
 const utf8Decoder = new TextDecoder()
 const pipeline = []
+let nextId = 0
+
+async function loadStagesFromFiles(files) {
+  for (const file of files) await loadStageFromFile(file)
+}
 
 async function loadStageFromFile(file) {
   const stage = {
-    id: Date.now().toString(16),
+    id: (nextId++).toString(16),
     origin: file,
     data: null,
     errors : null,
@@ -166,6 +171,10 @@ onmessage = function (msg) {
   const { name, args } = msg.data
   if (name === 'loadStageFromFile') {
     return loadStageFromFile(...args)
+  }
+
+  if (name === 'loadStagesFromFiles') {
+    return loadStagesFromFiles(...args)
   }
 
   if (name === 'removeStage') {
