@@ -10,10 +10,10 @@
   "settings": {},
   // Add the IDs of extensions you want installed when the container is created.
   "extensions": [
-	"esbenp.prettier-vscode",
-	"dbaeumer.vscode-eslint",
-	"bradlc.vscode-tailwindcss"
-],
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "bradlc.vscode-tailwindcss"
+  ],
   // Use 'forwardPorts' to make a list of ports inside the container available locally.
   "forwardPorts": [3000],
   // Run every time you connected to the container

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react'
+import useWebSocket, { ReadyState } from 'react-use-websocket'
 import { Switch } from '@headlessui/react'
 
 function classNames(...classes) {
@@ -34,17 +35,59 @@ function Toggle({ defaultValue = false, onChange }) {
 }
 
 export default function Home() {
+  const utf8Decoder = useMemo(() => new TextDecoder(), [])
+  const utf8Encoder = useMemo(() => new TextEncoder(), [])
+  const [autorun, setAutorun] = useState(false)
+  const [connectionActive, setConnectionActive] = useState(false)
+  const [connectionError, setConnectionError] = useState('')
   const [pipeline, setPipeline] = useState([])
+  const [record, setRecord] = useState(null)
+  const [results, setResults] = useState(null)
+  const [samples, setSamples] = useState([])
+  const [sampleSize, setSampleSize] = useState(10)
   const [selected, setSelected] = useState(null)
-  const [results, setResults] = useState({})
+  const [showConnectPanel, setShowConnectPanel] = useState(false)
+  const [socketUrl, setSocketUrl] = useState('')
+  const [workerErrors, setWorkerErrors] = useState([])
+  const workerRef = useRef()
+  const {lastMessage, readyState} = useWebSocket(socketUrl, {
+    onClose: ({code, reason, wasClean}) => {
+      if (!wasClean) {
+        console.warn("WebSocket connection was closed abnormally", {code, reason})
+      }
+    },
+    onError: (e) => {
+      console.error("WebSocket connection error", e)
+      setConnectionError("The connection experienced an error.")
+      setConnectionActive(false)
+    },
+    onOpen: () => {
+      console.info("WebSocket connection established")
+    },
+  }, connectionActive)
+
+  useEffect(() => {
+    (async() => {
+      if (lastMessage !== null) {
+        const sample = new Uint8Array(await lastMessage.data.arrayBuffer())
+        setSamples(samples => samples.concat(sample).slice(-sampleSize))
+      }
+    })()
+  }, [lastMessage, sampleSize, setSamples])
+
+  useEffect(() => {
+    setConnectionError('')
+    setSamples([])
+  }, [socketUrl])
+
+
   const selectedResult = useMemo(
     () => results?.byStage?.find(({ stageId }) => stageId === selected),
     [selected, results],
   )
-  const [autorun, setAutorun] = useState(true)
-  const [error, setError] = useState(null)
-  const [record, setRecord] = useState('')
-  const workerRef = useRef()
+
+  const toggleShowConnectPanel = () => setShowConnectPanel(v => !v)
+  const toggleConnectionActive = () => setConnectionActive(v => !v)
 
   const onPipelineChanged = useCallback((p) => {
     setPipeline(p)
@@ -53,7 +96,7 @@ export default function Home() {
     setResults(r)
   }, [])
   const onWorkerError = useCallback((e) => {
-    setError(e)
+    setWorkerErrors((errors) => [...errors, e])
   }, [])
 
   useEffect(() => {
@@ -72,10 +115,12 @@ export default function Home() {
         return onWorkerError(...args)
       }
 
-      console.warn(`No such function ${name}`)
+      console.warn(`Worker cannot call function ${name}`)
     }
 
-    workerRef.current?.postMessage({ name: 'loadStagesFromFiles', args: [pipeline?.map(({ origin }) => origin)] })
+    if (pipeline?.length > 0) {
+      workerRef.current?.postMessage({ name: 'loadStagesFromFiles', args: [pipeline?.map(({origin}) => origin)]}) // reload pipeline
+    } 
 
     return () => {
       workerRef.current.terminate()
@@ -85,31 +130,21 @@ export default function Home() {
 
   const onFileInput = useCallback(
     async (e) => {
-      setError(null)
-
       const file = e.target.files[0]
       e.target.value = null
       try {
         workerRef.current?.postMessage({ name: 'loadStageFromFile', args: [file] })
       } catch (err) {
-        setError(err)
+        setWorkerErrors(errors => [...errors, err])
       }
     },
-    [setError, workerRef],
+    [workerRef],
   )
 
   const onRecordInputChange = useCallback((e) => {
     const r = e.target.value
-    setRecord(r)
-    if (r != null) {
-      localStorage.setItem('record-input', r)
-    }
-  }, [])
-
-  useEffect(() => {
-    const r = localStorage.getItem('record-input')
-    setRecord(r)
-  }, [])
+    setRecord(utf8Encoder.encode(r))
+  }, [utf8Encoder])
 
   const onRemoveStage = useCallback(
     (id) => {
@@ -119,42 +154,43 @@ export default function Home() {
   )
 
   const onRun = useCallback(() => {
-    let r = ''
     if (record) {
-      r = new TextEncoder().encode(record)
+      workerRef.current?.postMessage({ name: 'processRecord', args: [record] })
     }
-
-    workerRef.current?.postMessage({ name: 'processRecord', args: [r] })
-  }, [workerRef, record])
+  }, [record, workerRef])
 
   useEffect(() => {
     if (autorun) {
       onRun()
     }
-  }, [autorun, record, pipeline, onRun])
+  }, [autorun, pipeline, record, onRun])
 
   useEffect(() => {
-    console.log(pipeline)
+    console.debug('pipeline', pipeline)
   }, [pipeline])
 
   useEffect(() => {
-    console.log(results)
+    console.debug('results', results)
   }, [results])
+
+  useEffect(() => {
+    console.debug('record', record)
+  }, [record])
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden">
-      {error ? (
-        <div className="bg-red-100 text-red-700 px-4 py-2 flex justify-between items-center">
+      {workerErrors?.map((error, idx) => 
+        <div key={idx} className="bg-red-100 text-red-700 px-4 py-2 flex justify-between items-center">
           <div>{error.message}</div>
-          <button className="text-xl text-black" onClick={() => setError(null)}>
+          <button className="text-xl text-black" onClick={() => setWorkerErrors(errors => [...errors.slice(0, idx), ...errors.slice(idx+1)])}>
             ✕
           </button>
         </div>
-      ) : null}
+      )}
       <div className="flex flex-1 h-full w-full">
         <div className="mr-4 border-r-2 border-slate-200 border-solid flex flex-col items-center">
           <div className="flex-1 pt-4">
-            <h2 className="w-full text-center mb-4 text-2xl font-bold">Plugins</h2>
+            <h2 className="w-full text-center mb-4 text-2xl font-bold">Pipeline</h2>
             <div className="text-xl pl-4 font-medium gap-y-2 flex flex-col">
               {pipeline?.map(({ id, origin }) => (
                 <div
@@ -185,7 +221,7 @@ export default function Home() {
           </div>
           <div className="p-4">
             <label className="flex items-center justify-center text-blue-800 w-48 h-12 rounded-md cursor-pointer hover:bg-blue-100 ring-2 ring-blue-300 hover:ring-blue-400">
-              <span className="font-bold text-xl">load</span>
+              <span className="font-bold text-xl">add stage</span>
               <input type="file" onChange={onFileInput} accept="application/wasm" className="hidden" />
             </label>
           </div>
@@ -197,7 +233,7 @@ export default function Home() {
               placeholder="Add your log..."
               rows={8}
               onChange={onRecordInputChange}
-              value={record}
+              value={record ? utf8Decoder.decode(record) : ''}
             />
             <div className="absolute right-0 top-0 pt-4 pr-4 flex items-center gap-x-2 ">
               <span>autorun</span>
@@ -206,7 +242,7 @@ export default function Home() {
             <div className="absolute right-0 bottom-0 pb-4 pr-4">
               <button
                 disabled={autorun}
-                className="bottom-0 right-0 bg-blue-800 text-white px-4 py-2 rounded-md disabled:hidden"
+                className="bottom-0 right-0 bg-blue-800 text-white font-bold px-4 py-2 rounded-md disabled:hidden"
                 onClick={onRun}
               >
                 run
@@ -217,23 +253,13 @@ export default function Home() {
             <div className="text-red-600">
               {results?.byStage?.map(({ stageId, results }) => (
                 <div key={stageId}>
-                  {results?.map(({ errors, input }) => (
+                  {results?.map(({ errors }) => (
                     <>
                       {errors?.length > 0 ? (
                         <div className="pl-2 pt-2">
                           <span className="font-bold mr-2">
                             {pipeline?.find(({ id }) => stageId === id)?.origin?.name}
                           </span>
-                          {/* <span>
-                            <span>(input: </span>
-                            <code
-                              className="inline-block align-bottom font-mono max-w-md overflow-hidden text-ellipsis"
-                              title={new TextDecoder().decode(input)}
-                            >
-                              {new TextDecoder().decode(input)}
-                            </code>
-                            <span>):</span> */}
-                          {/* </span> */}
                         </div>
                       ) : null}
                       {errors?.map((e, idx) => (
@@ -255,7 +281,7 @@ export default function Home() {
                     <div>
                       <span className="mr-2">⇥</span>
                       <span className="font-bold text-blue-600 mr-2">input {idx}.</span>
-                      <div className="font-mono inline-block break-all">{new TextDecoder().decode(input)}</div>
+                      <div className="font-mono inline-block break-all">{utf8Decoder.decode(input)}</div>
                     </div>
                     {errors?.map((e) => (
                       <div className="pl-4 py-1 text-red-600" key={e}>
@@ -268,7 +294,7 @@ export default function Home() {
                           <span className="mr-2">⇤</span>
                           <span className="font-bold text-blue-600">{idx}.</span>
                           <div className="font-mono inline-block break-all" key={idx}>
-                            {new TextDecoder().decode(o)}
+                            {utf8Decoder.decode(o)}
                           </div>
                         </div>
                       ))}
@@ -282,11 +308,27 @@ export default function Home() {
                   <span className="mr-2">⇤</span>
                   <span className="font-bold text-blue-600 mr-2">{idx}.</span>
                   <div className="font-mono inline-block break-all" key={idx}>
-                    {new TextDecoder().decode(o)}
+                    {utf8Decoder.decode(o)}
                   </div>
                 </div>
               ))
             )}
+          </div>
+        </div>
+        <div className="flex transition-transform ease-in-out">
+          <div className={classNames(showConnectPanel ? "" : "mr-[-600px]", "self-start mt-2 p-2 border-2 border-r-0 border-slate-200 border-solid rounded-l cursor-pointer transition-all duration-500 ease-in-out hover:bg-blue-100 hover:border-blue-400")} onClick={toggleShowConnectPanel}>
+            <span className="font-bold rotate-180 pb-2" style={{writingMode: 'vertical-rl'}}>Connect</span>
+          </div>
+          <div className={classNames(showConnectPanel ? "translate-x-0" : "translate-x-full", "w-[600px] p-4 overflow-hidden border-l-2 border-solid border-slate-200 transition-transform duration-500 ease-in-out flex flex-col")}>
+            <h2 className="text-xl font-bold self-center py-2">Log source</h2>
+            <input type="url" pattern="wss?://" placeholder="WebSocket URL" className="m-2 disabled:bg-slate-100" disabled={readyState === ReadyState.OPEN} value={socketUrl} onInput={(e) => setSocketUrl(e.target.value)}></input>
+            {connectionError ? <div className="text-red-600 self-end">{connectionError}</div> : null}
+            <button className="m-2 p-2 w-48 text-blue-800 font-bold rounded-md cursor-pointer ring-2 ring-blue-300 hover:bg-blue-50" disabled={socketUrl === ''} onClick={toggleConnectionActive}>{connectionActive ? 'disconnect' : 'connect'}</button>
+            <div className="divide-y divide-slate-200 overflow-scroll">
+              {samples?.map((sample, idx) => <div key={idx}>
+                <span className="text-mono p-2 block break-all cursor-pointer hover:bg-blue-50" onClick={() => setRecord(sample)}>{utf8Decoder.decode(sample)}</span>
+              </div>)}
+            </div>
           </div>
         </div>
       </div>

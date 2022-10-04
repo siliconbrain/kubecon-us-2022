@@ -8,7 +8,6 @@ const nextConfig = {
     browsersListForSwc: true,
     legacyBrowsers: false,
     images: { allowFutureImage: true },
-    nextScriptWorkers: true,
   },
 }
 

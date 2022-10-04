@@ -97,7 +97,7 @@ async function loadStageFromFile(file) {
 
     onPipelineChanged()
   } catch (err) {
-    onError(err)
+    onWorkerError(err)
   }
 }
 
@@ -163,8 +163,8 @@ function onRecordProcessed(result) {
   postMessage({ name: 'onRecordProcessed', args: [result] })
 }
 
-function onError(err) {
-  postMessage({ name: 'onError', args: [err] })
+function onWorkerError(err) {
+  postMessage({ name: 'onWorkerError', args: [err] })
 }
 
 onmessage = function (msg) {
@@ -185,6 +185,3 @@ onmessage = function (msg) {
     return processRecord(...args)
   }
 }
-
-onPipelineChanged()
-onRecordProcessed()
