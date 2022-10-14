@@ -100,7 +100,7 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
-    workerRef.current = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' })
+    workerRef.current = new Worker('/worker.js', { type: 'module' })
     workerRef.current.onmessage = function (msg) {
       const { name, args } = msg.data
       if (name === 'onPipelineChanged') {
