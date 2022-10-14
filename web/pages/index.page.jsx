@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react'
 import useWebSocket, { ReadyState } from 'react-use-websocket'
 import { Switch } from '@headlessui/react'
+import { Light as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { json } from 'react-syntax-highlighter/dist/cjs/languages/hljs'
+import { lightfair as highlightStyle } from 'react-syntax-highlighter/dist/cjs/styles/hljs'
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ')
@@ -34,7 +37,29 @@ function Toggle({ defaultValue = false, onChange }) {
   )
 }
 
+function InputIcon({ size }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width={size} height={size}>
+      <polygon points="75,50 50,35 50,65"/>
+      <path d="M15,50 L55,50" fill="none" stroke="black" strokeWidth="10"/>
+      <path d="M60,34 a16,30 0 1,1 0,32" fill="none" stroke="black" strokeWidth="7.5"/>
+    </svg>
+  )
+}
+
+function OutputIcon({ size }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width={size} height={size}>
+      <polygon points="10,50 35,35 35,65"/>
+      <path d="M25,50 L75,50" fill="none" stroke="black" strokeWidth="10"/>
+      <path d="M60,36 a16,30 0 1,1 0,28" fill="none" stroke="black" strokeWidth="7.5"/>
+    </svg>
+  )
+}
+
 export default function Home() {
+  SyntaxHighlighter.registerLanguage('json', json)
+
   const utf8Decoder = useMemo(() => new TextDecoder(), [])
   const utf8Encoder = useMemo(() => new TextEncoder(), [])
   const [autorun, setAutorun] = useState(false)
@@ -229,7 +254,7 @@ export default function Home() {
         <div className="flex-1 pl-2 pr-8 ml-2 flex-col flex pt-8 overflow-hidden">
           <div className="flex gap-x-4 relative">
             <textarea
-              className="block bg-gray-50 pr-32 w-full font-mono resize-none border-0 py-3 focus:ring-1 rounded-md focus:ring-blue-400 ring-slate-200"
+              className="block bg-gray-50 pr-32 w-full font-mono resize-none border-0 py-3 focus:ring-1 rounded-md focus:ring-blue-400 ring-slate-200 break-all"
               placeholder="Add your log..."
               rows={8}
               onChange={onRecordInputChange}
@@ -278,24 +303,30 @@ export default function Home() {
               <>
                 {selectedResult?.results?.map(({ input, outputs, errors }, idx) => (
                   <div key={idx} className="py-2">
-                    <div>
-                      <span className="mr-2">⇥</span>
-                      <span className="font-bold text-blue-600 mr-2">input {idx}.</span>
-                      <div className="font-mono inline-block break-all">{utf8Decoder.decode(input)}</div>
+                    <div className="flex">
+                      <span className="mr-2">
+                        <InputIcon size="26px"/>
+                      </span>
+                      <span className="font-bold text-blue-600 text-xl mr-2 whitespace-nowrap">{idx}.</span>
+                      <SyntaxHighlighter language="json" style={highlightStyle} customStyle={{display: 'inline-block', padding: '0 .5em', wordBreak: "break-all"}} wrapLongLines={true}>
+                        {utf8Decoder.decode(input)}
+                      </SyntaxHighlighter>
                     </div>
-                    {errors?.map((e) => (
-                      <div className="pl-4 py-1 text-red-600" key={e}>
+                    {errors?.map((e, idx) => (
+                      <div className="pl-4 py-1 text-red-600" key={idx}>
                         Error: {e}
                       </div>
                     ))}
                     <div>
                       {outputs?.map((o, idx) => (
-                        <div key={idx} className="py-1 pl-4">
-                          <span className="mr-2">⇤</span>
-                          <span className="font-bold text-blue-600">{idx}.</span>
-                          <div className="font-mono inline-block break-all" key={idx}>
+                        <div key={idx} className="py-1 pl-4 flex">
+                          <span className="mr-2">
+                            <OutputIcon size="26px"/>
+                          </span>
+                          <span className="font-bold text-blue-600 mr-2 text-xl">{idx}.</span>
+                          <SyntaxHighlighter language="json" style={highlightStyle} customStyle={{display: 'inline-block', padding: '0 .5em', wordBreak: "break-all"}} wrapLongLines={true}>
                             {utf8Decoder.decode(o)}
-                          </div>
+                          </SyntaxHighlighter>
                         </div>
                       ))}
                     </div>
@@ -304,12 +335,14 @@ export default function Home() {
               </>
             ) : (
               results?.outputs?.map((o, idx) => (
-                <div key={idx} className="py-1 pl-4">
-                  <span className="mr-2">⇤</span>
-                  <span className="font-bold text-blue-600 mr-2">{idx}.</span>
-                  <div className="font-mono inline-block break-all" key={idx}>
+                <div key={idx} className="py-1 pl-4 flex">
+                  <span className="mr-2">
+                    <OutputIcon size="26px"/>
+                  </span>
+                  <span className="font-bold text-blue-600 text-xl mr-2">{idx}.</span>
+                  <SyntaxHighlighter language="json" style={highlightStyle} customStyle={{display: 'inline-block', padding: '0 .5em', wordBreak: "break-all"}} wrapLongLines={true}>
                     {utf8Decoder.decode(o)}
-                  </div>
+                  </SyntaxHighlighter>
                 </div>
               ))
             )}
