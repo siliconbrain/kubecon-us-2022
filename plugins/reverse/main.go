@@ -14,6 +14,9 @@ func Send(ptr *byte, len uint) bool
 
 //export receive
 func Receive(dataLen uint) {
+	if dataLen == 0 {
+		return
+	}
 	data := make([]byte, dataLen)
 	GetData(&data[0])
 	runes := []rune(string(data))
@@ -23,4 +26,7 @@ func Receive(dataLen uint) {
 	}
 	data = []byte(string(runes))
 	Send(&data[0], uint(len(data)))
+	Send(&data[0], uint(len(data)))
 }
+
+func main() {}
