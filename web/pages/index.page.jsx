@@ -40,9 +40,9 @@ function Toggle({ defaultValue = false, onChange }) {
 function InputIcon({ size }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width={size} height={size}>
-      <polygon points="75,50 50,35 50,65"/>
-      <path d="M15,50 L55,50" fill="none" stroke="black" strokeWidth="10"/>
-      <path d="M60,34 a16,30 0 1,1 0,32" fill="none" stroke="black" strokeWidth="7.5"/>
+      <polygon points="50,75 35,50 65,50"/>
+      <path d="M50,15 L50,55" fill="none" stroke="black" strokeWidth="10"/>
+      <path d="M30,56 a30,16 0 1,0 40,0" fill="none" stroke="black" strokeWidth="7.5"/>
     </svg>
   )
 }
@@ -50,9 +50,9 @@ function InputIcon({ size }) {
 function OutputIcon({ size }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width={size} height={size}>
-      <polygon points="10,50 35,35 35,65"/>
-      <path d="M25,50 L75,50" fill="none" stroke="black" strokeWidth="10"/>
-      <path d="M60,36 a16,30 0 1,1 0,28" fill="none" stroke="black" strokeWidth="7.5"/>
+      <polygon points="50,90 35,65 65,65"/>
+      <path d="M50,25 L50,75" fill="none" stroke="black" strokeWidth="10"/>
+      <path d="M36,44 a30,16 0 1,1 28,0" fill="none" stroke="black" strokeWidth="7.5"/>
     </svg>
   )
 }
