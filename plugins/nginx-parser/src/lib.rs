@@ -60,7 +60,7 @@ fn process_input<H: Host>(host: &mut H, input: &[u8]) -> Option<Vec<u8>> {
     lazy_static! {
         static ref RE: Regex = Regex::new(r#"^(?P<remote>[^ ]*) (?P<host>[^ ]*) (?P<user>[^ ]*) \[(?P<time>[^\]]*)\] "(?P<method>\S+)(?: +(?P<path>[^"]*?)(?: +\S*)?)?" (?P<code>[^ ]*) (?P<size>[^ ]*)(?: "(?P<referer>[^"]*)" "(?P<agent>[^"]*)"(?:\s+(?P<http_x_forwarded_for>[^ ]+))?)?$"#).unwrap();
     }
-    
+
     match serde_json::from_slice::<serde_json::Value>(input) {
         Ok(mut value) => if let Some(obj) = value.as_object_mut() {
             let mut new_entries = Vec::new();
