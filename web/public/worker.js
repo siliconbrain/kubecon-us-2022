@@ -128,7 +128,11 @@ function processRecord(record) {
       stage.errors = []
       console.assert(stage.sent === null, 'stage sent should be cleared', { sent: stage.sent, stage })
       stage.sent = []
-      stage.instance.exports.receive(stage.data.length)
+      try {
+        stage.instance.exports.receive(stage.data.length)
+      } catch (err) {
+        stage.errors.push(err.toString())
+      }
       if (stage.data !== null) {
         console.debug('stage did not consume data (no call to get_data)', { data: stage.data, stage })
         stage.data = null
