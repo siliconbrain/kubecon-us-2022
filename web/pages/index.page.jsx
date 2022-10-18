@@ -5,6 +5,9 @@ import { Light as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { json } from 'react-syntax-highlighter/dist/cjs/languages/hljs'
 import { lightfair as highlightStyle } from 'react-syntax-highlighter/dist/cjs/styles/hljs'
 
+const utf8Decoder = new TextDecoder()
+const utf8Encoder = new TextEncoder()
+
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ')
 }
@@ -60,8 +63,6 @@ function OutputIcon({ size }) {
 export default function Home() {
   SyntaxHighlighter.registerLanguage('json', json)
 
-  const utf8Decoder = useMemo(() => new TextDecoder(), [])
-  const utf8Encoder = useMemo(() => new TextEncoder(), [])
   const [autorun, setAutorun] = useState(false)
   const [connectionActive, setConnectionActive] = useState(false)
   const [connectionError, setConnectionError] = useState('')
@@ -169,7 +170,7 @@ export default function Home() {
   const onRecordInputChange = useCallback((e) => {
     const r = e.target.value
     setRecord(utf8Encoder.encode(r))
-  }, [utf8Encoder])
+  }, [])
 
   const onRemoveStage = useCallback(
     (id) => {
