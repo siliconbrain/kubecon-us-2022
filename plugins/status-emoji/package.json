@@ -1,0 +1,26 @@
+{
+  "name": "status-emoji",
+  "version": "1.0.0",
+  "description": "Emoji HTTP status codes",
+  "main": "index.js",
+  "scripts": {
+    "test": "node tests",
+    "asbuild:debug": "asc assembly/index.ts --target debug",
+    "asbuild:release": "asc assembly/index.ts --target release",
+    "asbuild": "npm run asbuild:debug && npm run asbuild:release",
+    "start": "npx serve ."
+  },
+  "author": {
+    "email": "sir.dudas.adam@gmail.com",
+    "name": "Dudás Ádám",
+    "url": "https://siliconbrain.github.io"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "assemblyscript-json": "^1.1.0"
+  },
+  "devDependencies": {
+    "assemblyscript": "^0.21.6"
+  },
+  "type": "module"
+}
