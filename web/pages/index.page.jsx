@@ -277,23 +277,17 @@ export default function Home() {
           </div>
           {selected ? null : (
             <div className="text-red-600">
-              {results?.byStage?.map(({ stageId, results }) => (
+              {results?.byStage?.filter(({ results }) => results.some(({errors}) => errors.length > 0)).map(({ stageId, results }) => (
                 <div key={stageId}>
-                  {results?.map(({ errors }) => (
-                    <>
-                      {errors?.length > 0 ? (
-                        <div className="pl-2 pt-2">
-                          <span className="font-bold mr-2">
-                            {pipeline?.find(({ id }) => stageId === id)?.origin?.name}
-                          </span>
-                        </div>
-                      ) : null}
-                      {errors?.map((e, idx) => (
-                        <div className="pl-4" key={idx}>
-                          {e}
-                        </div>
-                      ))}
-                    </>
+                  <div className="pl-2 pt-2">
+                    <span className="font-bold mr-2">
+                      {pipeline?.find(({ id }) => stageId === id)?.origin?.name}
+                    </span>
+                  </div>
+                  {results?.flatMap(({ errors }) => errors).map((err, idx) => (
+                    <div className="pl-4" key={idx}>
+                      {err}
+                    </div>
                   ))}
                 </div>
               ))}
