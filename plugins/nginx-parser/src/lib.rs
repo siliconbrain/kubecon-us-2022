@@ -82,6 +82,7 @@ fn process_input<H: Host>(host: &mut H, input: &[u8]) -> Option<Vec<u8>> {
             }
 
             if !new_entries.is_empty() {
+                obj.remove("message");
                 for entry in new_entries {
                     obj.insert(entry.0, entry.1);
                 }
