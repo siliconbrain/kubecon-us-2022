@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "fmt": "prettier --list-different --find-config-path --write './**/*'"
+    "fmt": "prettier --list-different --find-config-path --write './**/*'",
+    "export": "next export"
   },
   "dependencies": {
     "@headlessui/react": "1.7.2",
