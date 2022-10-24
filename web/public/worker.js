@@ -131,6 +131,7 @@ function processRecord(record) {
       try {
         stage.instance.exports.receive(stage.data.length)
       } catch (err) {
+        console.error("receive threw an exception", err)
         stage.errors.push(err.toString())
       }
       if (stage.data !== null) {
