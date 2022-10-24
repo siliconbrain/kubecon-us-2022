@@ -1,9 +1,0 @@
-.env*
-.next/
-.npmrc
-.nvmrc
-package-lock.json
-pnpm-lock.yaml
-favicon.ico
-charts/
-Makefile
