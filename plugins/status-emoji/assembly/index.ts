@@ -34,7 +34,7 @@ export function receive(len: usize): void {
         emoji = "🤒"
       }
       if (emoji !== "") {
-        rootObj.set("status_emoji", new JSON.Str(emoji));
+        rootObj.set("code", new JSON.Str(emoji));
       }
     }
   }
