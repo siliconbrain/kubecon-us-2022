@@ -84,8 +84,10 @@ export default function Home() {
     },
     onError: (e) => {
       console.error("WebSocket connection error", e)
-      setConnectionError("The connection experienced an error.")
-      setConnectionActive(false)
+      if (connectionActive) {
+        setConnectionError("The connection experienced an error.")
+        setConnectionActive(false)
+      }
     },
     onOpen: () => {
       console.info("WebSocket connection established")
@@ -104,7 +106,7 @@ export default function Home() {
   useEffect(() => {
     setConnectionError('')
     setSamples([])
-  }, [socketUrl])
+  }, [socketUrl, connectionActive])
 
 
   const selectedResult = useMemo(
